@@ -79,7 +79,6 @@ class ArchDataLoader:
             logging.error(f"Invalid value in historical_range: {e}")
             raise ValueError("Invalid value in historical_range (ensure start/end are valid dates)")
 
-        # Renamed from 'interval' to 'frequency'
         frequency = self.config.get('frequency', 'day')
         if 'frequency' not in self.config:
             logging.warning("'frequency' not found in config; defaulting to 'day'")

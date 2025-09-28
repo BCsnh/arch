@@ -52,7 +52,7 @@ class ArchSignalClient:
             # Serialize DataFrame to dict for Redis
             serializable_signals = self._make_json_serializable(signals_df.to_dict(orient='records'))
             redis_conn = self._get_redis()
-            redis_conn.lpush(f"signals:{period_start.strftime('%Y-%m-%d_%H:%M')}:{self.client_name}", json.dumps(serializable_signals))
+            redis_conn.lpush(f"signals|{period_start.strftime('%Y%m%dT%H%M')}|{self.client_name}", json.dumps(serializable_signals))
         elif output_type == 'parquet':
             output_dir = self.config.get('output_dir', './outputs')
             os.makedirs(output_dir, exist_ok=True)
