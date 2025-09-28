@@ -88,18 +88,25 @@ class ArchSignalClient:
         region = self.config['region']
         redis_conn = self._get_redis()
         self.pubsub = redis_conn.pubsub()
-        self.pubsub.psubscribe(**{f"data:region:{region}:period:*": self._handler})
+        self.pubsub.psubscribe(**{f"data|region|{region}|period|*": self._handler})
         logging.info(f"Client {self.client_name} listening to Redis for region {region}...")
         self.pubsub.run_in_thread(sleep_time=0.001)
 
     def _handler(self, message):
         if message['type'] == 'pmessage':
             channel = message['channel'].decode()
-            period_start_str = channel.split(':')[-1]
-            period_start = pd.to_datetime(period_start_str)  # Use pd.to_datetime instead of datetime.strptime
-            data_raw = json.loads(message['data'].decode())
-            data = {df_type: pd.DataFrame(records) for df_type, records in data_raw.items()}
+            period_start_str = channel.split('|')[-1]  # Extract last part after 'period|'
+            try:
+                period_start = pd.to_datetime(period_start_str)  # Explicit compact format
+            except ValueError as e:
+                logging.error(f"Failed to parse period timestamp '{period_start_str}': {e}")
+                return  # Skip invalid messages
             
+            print(channel, flush=True)
+            data_raw = json.loads(message['data'].decode())
+            print(data_raw, flush=True)
+            data = {df_type: pd.DataFrame(records) for df_type, records in data_raw.items()}
+
             # Update context for this event/period (use pd.Timestamp)
             self.context['current_date'] = pd.to_datetime(period_start).date()
             self.context['current_time'] = pd.to_datetime(period_start).time()
