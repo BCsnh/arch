@@ -8,4 +8,5 @@ historical_range:
   start: 2023-01-01
   end: 2023-12-31
 replay_parallel: false
+calendar: XNYS
 dataframe_types: [market_data]

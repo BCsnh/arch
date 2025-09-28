@@ -19,7 +19,7 @@ def load_config(file_path):
 
 def setup_logging(config, mode, is_server=False, client_dir=None, config_name=None):
     current_date = datetime.now().strftime('%Y%m%d')
-    
+
     if is_server:
         # Server logs: server_live_<configname>_<date>.log
         log_dir = config.get('log_dir', './logs/server')
@@ -38,7 +38,7 @@ def setup_logging(config, mode, is_server=False, client_dir=None, config_name=No
             start_date = pd.to_datetime(config['historical_range']['start']).strftime('%Y%m%d')
             end_date = pd.to_datetime(config['historical_range']['end']).strftime('%Y%m%d')
             log_file = f"{log_dir}/client_{client_name}_replay_{config_name}_{start_date}_{end_date}.log"
-    
+
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(processName)s - %(message)s',
@@ -117,7 +117,7 @@ def main():
         if 'client_name' not in config:
             sys.exit("Config must include 'client_name' (e.g., myclient1).")
         config['mode'] = args.mode
-        
+
         # Determine client's folder path for logs and outputs
         client_script_abs = os.path.abspath(args.client_script)
         client_dir = os.path.dirname(client_script_abs)
@@ -147,8 +147,17 @@ def main():
         elif args.mode == 'replay':
             logging.info(f"Starting client {config['client_name']} in replay mode for region {config['region']} (processing directly)... PID written to {pid_file}")
             from core.arch_data_loader import ArchDataLoader
+            from core.arch_calendar import Calendar  # Import for calendar scheduling
+            
             loader = ArchDataLoader(config)
-            periods = loader.get_periods()
+            
+            # Use calendar if enabled in config
+            if 'calendar' in config.keys():
+                calendar = Calendar(config)
+                valid_dates = calendar.get_valid_dates(config['historical_range']['start'], config['historical_range']['end'])
+                periods = [(date, date + pd.Timedelta(days=1)) for date in valid_dates]  # Example: daily periods on valid dates
+            else:
+                periods = loader.get_periods()  # Fallback to original sequential periods
 
             def process_period(period_tuple):
                 period_start, period_end = period_tuple
