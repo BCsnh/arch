@@ -7,9 +7,9 @@ import os
 
 class ArchSignalClient:
     """Base class for signal clients. Subclasses must implement initialize and generate_signals."""
-    def __init__(self, config, client_id):
+    def __init__(self, config, client_name):  # Changed to client_name
         self.config = config
-        self.client_id = client_id
+        self.client_name = client_name  # Changed from client_id
         self.redis = None  # Lazy init from previous patch
         self.pubsub = None
         self.context = {}  # Initialize context as empty dict
@@ -39,7 +39,7 @@ class ArchSignalClient:
             # Additional custom info can be added here or in subclasses (e.g., from config)
             'custom_info': self.config.get('custom_client_info', {})  # Example: Pull from config
         }
-        logging.info(f"Initialized context for {self.client_id}: {self.context}")
+        logging.info(f"Initialized context for {self.client_name}: {self.context}")
 
     def generate_signals(self, data):
         raise NotImplementedError("Subclasses must implement generate_signals() and return a pd.DataFrame")
@@ -52,11 +52,11 @@ class ArchSignalClient:
             # Serialize DataFrame to dict for Redis
             serializable_signals = self._make_json_serializable(signals_df.to_dict(orient='records'))
             redis_conn = self._get_redis()
-            redis_conn.lpush(f"signals:{period_start.strftime('%Y-%m-%d_%H:%M')}:{self.client_id}", json.dumps(serializable_signals))
+            redis_conn.lpush(f"signals:{period_start.strftime('%Y-%m-%d_%H:%M')}:{self.client_name}", json.dumps(serializable_signals))
         elif output_type == 'parquet':
             output_dir = self.config.get('output_dir', './outputs')
             os.makedirs(output_dir, exist_ok=True)
-            parquet_file = f"{output_dir}/signals_{self.client_id}_{self.config['region']}.parquet"
+            parquet_file = f"{output_dir}/signals_{self.client_name}_{self.config['region']}.parquet"
             
             # Append to Parquet file (requires fastparquet or pyarrow; install if needed)
             if os.path.exists(parquet_file):
@@ -68,28 +68,28 @@ class ArchSignalClient:
             output_dir = self.config.get('output_dir', './outputs')
             os.makedirs(output_dir, exist_ok=True)
             serializable_signals = self._make_json_serializable(signals_df.to_dict(orient='records'))
-            with open(f"{output_dir}/signals_{period_start.strftime('%Y-%m-%d_%H:%M')}_{self.client_id}.json", 'w') as f:
+            with open(f"{output_dir}/signals_{period_start.strftime('%Y-%m-%d_%H:%M')}_{self.client_name}.json", 'w') as f:
                 json.dump(serializable_signals, f)
         
-        logging.info(f"Client {self.client_id} pushed signals for {period_start}")
+        logging.info(f"Client {self.client_name} pushed signals for {period_start}")
 
     def process_period(self, period_start, data):
         # Update context for this event/period (use pd.Timestamp)
-        self.context['current_date'] = pd.to_datetime(period_start).normalize()
+        self.context['current_date'] = pd.to_datetime(period_start).date()
         self.context['current_time'] = pd.to_datetime(period_start).time()
         self.context['current_market_data'] = data  # Full data dict for the period
         logging.debug(f"Updated context for period {period_start}: {self.context}")
         
         signals_df = self.generate_signals(data)
         self.push_signals(period_start, signals_df)
-        logging.info(f"Client {self.client_id} processed period {period_start} directly (replay mode)")
+        logging.info(f"Client {self.client_name} processed period {period_start} directly (replay mode)")
 
     def listen(self):
         region = self.config['region']
         redis_conn = self._get_redis()
         self.pubsub = redis_conn.pubsub()
         self.pubsub.psubscribe(**{f"data:region:{region}:period:*": self._handler})
-        logging.info(f"Client {self.client_id} listening to Redis for region {region}...")
+        logging.info(f"Client {self.client_name} listening to Redis for region {region}...")
         self.pubsub.run_in_thread(sleep_time=0.001)
 
     def _handler(self, message):
@@ -101,7 +101,7 @@ class ArchSignalClient:
             data = {df_type: pd.DataFrame(records) for df_type, records in data_raw.items()}
             
             # Update context for this event/period (use pd.Timestamp)
-            self.context['current_date'] = pd.to_datetime(period_start).normalize()
+            self.context['current_date'] = pd.to_datetime(period_start).date()
             self.context['current_time'] = pd.to_datetime(period_start).time()
             self.context['current_market_data'] = data
             logging.debug(f"Updated context for period {period_start}: {self.context}")

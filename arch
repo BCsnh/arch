@@ -10,18 +10,40 @@ from core.arch_client import ArchSignalClient
 import time
 import os
 import signal
+from datetime import datetime
+import pandas as pd
 
 def load_config(file_path):
     with open(file_path, 'r') as f:
         return yaml.safe_load(f)
 
-def setup_logging(config):
-    log_dir = config.get('log_dir', './logs')
+def setup_logging(config, mode, is_server=False, client_dir=None, config_name=None):
+    current_date = datetime.now().strftime('%Y%m%d')
+    
+    if is_server:
+        # Server logs: server_live_<configname>_<date>.log
+        log_dir = config.get('log_dir', './logs/server')
+        os.makedirs(log_dir, exist_ok=True)
+        log_file = f"{log_dir}/server_live_{config_name}_{current_date}.log"
+    else:
+        # Client logs
+        client_name = config['client_name']  # Use client_name from config
+        log_dir = os.path.join(client_dir, config.get('log_dir', 'logs'))  # Relative to client folder
+        os.makedirs(log_dir, exist_ok=True)
+        if mode == 'live':
+            # client_<myclientname>_live_<configname>_<date>.log
+            log_file = f"{log_dir}/client_{client_name}_live_{config_name}_{current_date}.log"
+        else:  # replay
+            # client_<myclientname>_replay_<configname>_<startdate>_<enddate>.log
+            start_date = pd.to_datetime(config['historical_range']['start']).strftime('%Y%m%d')
+            end_date = pd.to_datetime(config['historical_range']['end']).strftime('%Y%m%d')
+            log_file = f"{log_dir}/client_{client_name}_replay_{config_name}_{start_date}_{end_date}.log"
+    
     logging.basicConfig(
         level=logging.INFO,
         format='%(asctime)s - %(levelname)s - %(processName)s - %(message)s',
         handlers=[
-            logging.FileHandler(f"{log_dir}/arch_{config['region']}.log"),
+            logging.FileHandler(log_file),
             logging.StreamHandler()
         ]
     )
@@ -68,7 +90,7 @@ def main():
 
     # stop_client subcommand
     stop_client_parser = subparsers.add_parser('stop_client')
-    stop_client_parser.add_argument('client_id', help="Client ID to stop (e.g., Client1_amer)")
+    stop_client_parser.add_argument('client_name', help="Client name to stop (e.g., myclient1)")
 
     args = parser.parse_args()
 
@@ -79,7 +101,8 @@ def main():
         if 'region' not in config:
             sys.exit("Config must include 'region' (e.g., amer, apac).")
         config['mode'] = 'live'
-        setup_logging(config)
+        config_name = os.path.splitext(os.path.basename(args.config_file))[0]  # e.g., 'server_amer'
+        setup_logging(config, config['mode'], is_server=True, config_name=config_name)  # Server-specific logging
         pid_file = f"pids/arch_server_{config['region']}.pid"
         write_pid(pid_file)
         logging.info(f"Starting Arch server in live mode for region {config['region']}... PID written to {pid_file}")
@@ -90,30 +113,36 @@ def main():
         config = load_config(args.config_file)
         if 'region' not in config:
             sys.exit("Config must include 'region' (e.g., amer, apac).")
+        if 'client_name' not in config:
+            sys.exit("Config must include 'client_name' (e.g., myclient1).")
         config['mode'] = args.mode
-        setup_logging(config)
+        
+        # Determine client's folder path for logs and outputs
+        client_script_abs = os.path.abspath(args.client_script)
+        client_dir = os.path.dirname(client_script_abs)
+        config_name = os.path.splitext(os.path.basename(args.config_file))[0]  # e.g., 'client_amer'
+        setup_logging(config, args.mode, is_server=False, client_dir=client_dir, config_name=config_name)  # Client-specific logging
 
         # Dynamically import client script and get the client class
-        spec = importlib.util.spec_from_file_location("client_module", args.client_script)
+        spec = importlib.util.spec_from_file_location("client_module", client_script_abs)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         client_class = next((cls for cls in vars(module).values() if isinstance(cls, type) and issubclass(cls, ArchSignalClient) and cls != ArchSignalClient), None)
         if not client_class:
             sys.exit(f"No ArchSignalClient subclass found in {args.client_script}")
 
-        client_id = f"{client_class.__name__}_{config['region']}"
-        client = client_class(config, client_id)
-        pid_file = f"pids/{client_id}.pid"
+        client = client_class(config, config['client_name'])  # Use client_name from config
+        pid_file = f"pids/{config['client_name']}.pid"  # PID based on client_name
         write_pid(pid_file)
 
         if args.mode == 'live':
-            logging.info(f"Starting client {client_id} in live mode for region {config['region']}... PID written to {pid_file}")
+            logging.info(f"Starting client {config['client_name']} in live mode for region {config['region']}... PID written to {pid_file}")
             client.listen()
             while True:
                 time.sleep(1)
 
         elif args.mode == 'replay':
-            logging.info(f"Starting client {client_id} in replay mode for region {config['region']} (processing directly)... PID written to {pid_file}")
+            logging.info(f"Starting client {config['client_name']} in replay mode for region {config['region']} (processing directly)... PID written to {pid_file}")
             from core.arch_data_loader import ArchDataLoader
             loader = ArchDataLoader(config)
             periods = loader.get_periods()
@@ -122,6 +151,9 @@ def main():
                 period_start, period_end = period_tuple
                 data = loader.load_data(period_start, period_end)
                 client.process_period(period_start, data)
+
+            # Set replay output dir relative to client's folder path
+            config['output_dir'] = os.path.join(client_dir, config.get('output_dir', 'outputs'))  # Relative to client
 
             if config.get('replay_parallel', False):
                 from multiprocessing import Pool
@@ -133,7 +165,7 @@ def main():
                 for period in periods:
                     process_period(period)
 
-            logging.info(f"Replay completed for client {client_id}")
+            logging.info(f"Replay completed for client {config['client_name']}")
             os.remove(pid_file)  # Clean up after completion (replay finishes)
 
     elif args.command == 'stop_server':
@@ -141,7 +173,7 @@ def main():
         stop_process(pid_file)
 
     elif args.command == 'stop_client':
-        pid_file = f"pids/{args.client_id}.pid"
+        pid_file = f"pids/{args.client_name}.pid"  # Use client_name for PID file lookup
         stop_process(pid_file)
 
 if __name__ == "__main__":
