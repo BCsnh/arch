@@ -1,12 +1,12 @@
 # Start Server
-./arch start_server live configs/server_amer_config.yaml.
+./arch start_server live server_configs/amer.yaml
 
 # Stop Server
 ./arch stop_server amer
 
 # Start Client
-./arch start_client live clients/client1.py configs/client_amer_config.yaml
+./arch start_client live clients/dum_alpha/client.py clients/dum_alpha/configs/amer.yaml
 
 # Stop Client
-./arch stop_client Client1_amer
+./arch stop_client clients/dum_alpha/client.py clients/dum_alpha/configs/amer.yaml
 

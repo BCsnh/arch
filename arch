@@ -49,7 +49,7 @@ def setup_logging(config, mode, is_server=False, client_dir=None, config_name=No
     )
 
 def write_pid(pid_file):
-    os.makedirs('pids', exist_ok=True)
+    os.makedirs(os.path.dirname(pid_file), exist_ok=True)  # Create dir if needed (e.g., for client pids)
     with open(pid_file, 'w') as f:
         f.write(str(os.getpid()))
 
@@ -88,9 +88,10 @@ def main():
     stop_server_parser = subparsers.add_parser('stop_server')
     stop_server_parser.add_argument('region', help="Region of the server to stop (e.g., amer)")
 
-    # stop_client subcommand
+    # stop_client subcommand (takes client_script and config_file)
     stop_client_parser = subparsers.add_parser('stop_client')
-    stop_client_parser.add_argument('client_name', help="Client name to stop (e.g., myclient1)")
+    stop_client_parser.add_argument('client_script', help="Client script file to locate PID folder")
+    stop_client_parser.add_argument('config_file', help="Client config YAML file to load client_name")
 
     args = parser.parse_args()
 
@@ -132,7 +133,9 @@ def main():
             sys.exit(f"No ArchSignalClient subclass found in {args.client_script}")
 
         client = client_class(config, config['client_name'])  # Use client_name from config
-        pid_file = f"pids/{config['client_name']}.pid"  # PID based on client_name
+        # Write PID under client's folder (e.g., <client_dir>/pids/<client_name>.pid)
+        pid_dir = os.path.join(client_dir, 'pids')
+        pid_file = f"{pid_dir}/{config['client_name']}.pid"
         write_pid(pid_file)
 
         if args.mode == 'live':
@@ -173,7 +176,14 @@ def main():
         stop_process(pid_file)
 
     elif args.command == 'stop_client':
-        pid_file = f"pids/{args.client_name}.pid"  # Use client_name for PID file lookup
+        config = load_config(args.config_file)
+        if 'client_name' not in config:
+            sys.exit("Config must include 'client_name' (e.g., myclient1).")
+        # Derive client_dir from client_script
+        client_script_abs = os.path.abspath(args.client_script)
+        client_dir = os.path.dirname(client_script_abs)
+        pid_dir = os.path.join(client_dir, 'pids')
+        pid_file = f"{pid_dir}/{config['client_name']}.pid"
         stop_process(pid_file)
 
 if __name__ == "__main__":
