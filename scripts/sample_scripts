@@ -1,0 +1,12 @@
+# Start Server
+./arch start_server live configs/server_amer_config.yaml.
+
+# Stop Server
+./arch stop_server amer
+
+# Start Client
+./arch start_client live clients/client1.py configs/client_amer_config.yaml
+
+# Stop Client
+./arch stop_client Client1_amer
+
