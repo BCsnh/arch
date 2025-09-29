@@ -67,12 +67,7 @@ def run_replay(config, is_parallel, client_class, client_script_abs, client_dir,
     loader = ArchDataLoader(config)
 
     # Use calendar if enabled in config
-    if 'calendar' in config:
-        calendar = Calendar(config)
-        valid_dates = calendar.get_valid_dates(config['historical_range']['start'], config['historical_range']['end'])
-        periods = [(date, date + pd.Timedelta(days=1)) for date in valid_dates]  # Example: daily periods on valid dates
-    else:
-        periods = loader.get_periods()  # Fallback to original sequential periods
+    periods = loader.get_periods()
 
     # Set replay output dir relative to client's folder path
     config['output_dir'] = os.path.join(client_dir, config.get('output_dir', 'outputs'))  # Relative to client

@@ -4,6 +4,7 @@ import requests
 import logging
 from dateutil.relativedelta import relativedelta
 import warnings
+from .period_helper import get_periods_comprehensive
 
 class ArchDataLoader:
     def __init__(self, config):
@@ -62,21 +63,22 @@ class ArchDataLoader:
         return data
 
     def get_periods(self):
-        current = pd.to_datetime(self.config['historical_range']['start'])
-        end = pd.to_datetime(self.config['historical_range']['end'])
-        
-        periods = []
-        frequency = self.config.get('frequency', 'day')
+        config = {}
+        config['start_date'] = self.config['historical_range']['start']
+        config['end_date'] = self.config['historical_range']['end']
         if 'frequency' not in self.config:
             logging.warning("'frequency' not found in config; defaulting to 'day'")
+        config['frequency'] = self.config.get('frequency', 'day')
+        if 'calendar' not in self.config:
+            logging.warning("'calendar' not found in config; defaulting to '24/5'")
+        config['calendar'] = self.config.get('calendar', '24/5')
+        if not config['frequency'] in ['day','month']:
+            if 'open_time' not in self.config['historical_range']:
+                logging.error("'open_time' not found in config['historical_range']")
+            if 'close_time' not in self.config['historical_range']:
+                logging.error("'close_time' not found in config['historical_range']")
+        config['open_time'] = self.config['historical_range'].get('open_time', None)
+        config['close_time'] = self.config['historical_range'].get('close_time', None)
+        return get_periods_comprehensive(config)
+        
 
-        while current < end:
-            if frequency == 'minute':
-                next_period = current + pd.Timedelta(minutes=1)
-            elif frequency == 'day':
-                next_period = current + pd.Timedelta(days=1)
-            else:  # month
-                next_period = current + relativedelta(months=1)
-            periods.append((current, min(next_period, end)))
-            current = next_period
-        return periods

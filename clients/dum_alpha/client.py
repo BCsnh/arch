@@ -20,4 +20,5 @@ class Client1(ArchClient):  # Must inherit from ArchClient
             if 'value1' in df.columns:
                 df['signal'] = df['value1'] * self.context.get('custom_strategy_param', 1.0)  # Use context param
                 signals_df = pd.concat([signals_df, df])  # Append to result DataFrame
+        logging.info("Finish wave")
         return signals_df.reset_index(drop=True)
