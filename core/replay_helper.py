@@ -6,9 +6,9 @@ import pandas as pd
 from functools import partial
 import multiprocessing as mp
 import traceback
-from core.arch_data_loader import ArchDataLoader
-from core.arch_calendar import Calendar
-from core.arch_client import ArchClient
+from .arch_data_loader import ArchDataLoader
+from .arch_calendar import Calendar
+from .arch_client import ArchClient
 
 def process_period_sequential(loader, client, period_tuple):
     period_start, period_end = period_tuple
@@ -63,7 +63,7 @@ def process_period_parallel(config, client_script_abs, client_name, client_dir, 
         subjob_logger.removeHandler(fh)
         fh.close()
 
-def run_replay(config, is_parallel, client_class, client_script_abs, client_dir, config_name, log_dir, run_timestamp):
+def run_replay(config, is_parallel, client_class, client_script_abs, client_dir, config_name, log_dir, run_timestamp, num_processes=4, timeout_seconds=1800):
     loader = ArchDataLoader(config)
 
     # Use calendar if enabled in config
@@ -85,11 +85,12 @@ def run_replay(config, is_parallel, client_class, client_script_abs, client_dir,
     failed_periods = []
 
     if is_parallel:
+        logging.info(f"Running parallel replay with {num_processes} processes and {timeout_seconds}s timeout per subjob")
         sublog_dir = f"{log_dir}/{replay_run_name}_{start_date}_{end_date}_parallel_{run_timestamp}"
         os.makedirs(sublog_dir, exist_ok=True)
         import multiprocessing_logging
         multiprocessing_logging.install_mp_handler()
-        with mp.Pool(processes=4) as pool:
+        with mp.Pool(processes=num_processes) as pool:
             tasks = []
             for period in periods:
                 process_func = partial(process_period_parallel, config, client_script_abs, config['client_name'], client_dir, period, sublog_dir, replay_run_name, run_timestamp)
@@ -98,7 +99,7 @@ def run_replay(config, is_parallel, client_class, client_script_abs, client_dir,
             # Collect results, handling failures individually
             for period, res in tasks:
                 try:
-                    res.get(timeout=600)  # 10-min timeout; adjust as needed
+                    res.get(timeout=timeout_seconds)
                     successful_periods.append(period)
                 except (mp.TimeoutError, Exception) as e:
                     failed_periods.append(period)
