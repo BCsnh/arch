@@ -9,8 +9,8 @@ from .universe_helper import get_universe
 class ArchDataLoader:
     def __init__(self, config):
         self.config = config
-        self.datasources = config.get('datasources', [])
-        if 'market_data' not in self.datasources:
+        self.datasources = config.get('datasources', {})
+        if 'market_data' not in self.datasources.keys():
             raise ValueError("'datasources' must include 'market_data' as mandatory.")
         self.decide_universe()
 
@@ -31,7 +31,7 @@ class ArchDataLoader:
         data = {}
         region = self.config['region']
         data['current_universe'] = self._slice_universe(period_start, period_end)
-        for ds in self.datasources:
+        for ds in self.datasources.keys():
             # Placeholder: Fetch from API (customize for real source)
             # Simulate data with schema: refts, date, time, instrument_id, value1, value2, value3
             # Dynamically generate for example instruments (no config-specified assets)
@@ -54,7 +54,7 @@ class ArchDataLoader:
         data = {}
         region = self.config['region']
         data['current_universe'] = self._slice_universe(period_start, period_end)
-        for ds in self.datasources:
+        for ds in self.datasources.keys():
             try:
                 file_path = f"{self.config['historical_dir']}/{region}/{ds}.csv"
                 df = pd.read_csv(file_path, parse_dates=['refts', 'date', 'time'])

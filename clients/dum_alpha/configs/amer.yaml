@@ -12,4 +12,19 @@ historical_range:
   close_time: '10:05'
 frequency: day  # minute / day / month / 15min / 60min
 calendar: XNYS # 24/7, 24/5, XNYS, SSE etc
-datasources: [market_data]
+datasources:
+  market_data:
+    name: px
+    freq: daily
+    univ: amer
+    subd: null
+  feasible_universe:
+    name: feasible_universe
+    freq: daily
+    univ: amer
+    subd: null
+  cdata_sd:
+    name: central_data
+    freq: daily
+    univ: amer
+    subd: staticdata
