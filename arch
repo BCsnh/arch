@@ -7,17 +7,17 @@ import logging
 import importlib
 from core.arch_manager import ArchManager
 from core.arch_client import ArchClient
-import time
 import os
 import signal
 from datetime import datetime
 import pandas as pd
+import core.replay_helper as replay_helper  # Adjusted import for core/replay_helper.py
 
 def load_config(file_path):
     with open(file_path, 'r') as f:
         return yaml.safe_load(f)
 
-def setup_logging(config, mode, is_server=False, client_dir=None, config_name=None):
+def setup_logging(config, mode, is_server=False, client_dir=None, config_name=None, run_timestamp=None, mode_str=None):
     current_date = datetime.now().strftime('%Y%m%d')
 
     if is_server:
@@ -34,19 +34,19 @@ def setup_logging(config, mode, is_server=False, client_dir=None, config_name=No
             # client_<myclientname>_live_<configname>_<date>.log
             log_file = f"{log_dir}/client_{client_name}_live_{config_name}_{current_date}.log"
         else:  # replay
-            # client_<myclientname>_replay_<configname>_<startdate>_<enddate>.log
             start_date = pd.to_datetime(config['historical_range']['start']).strftime('%Y%m%d')
             end_date = pd.to_datetime(config['historical_range']['end']).strftime('%Y%m%d')
-            log_file = f"{log_dir}/client_{client_name}_replay_{config_name}_{start_date}_{end_date}.log"
+            log_file = f"{log_dir}/client_{client_name}_replay_{config_name}_{start_date}_{end_date}_{mode_str}_{run_timestamp}.log"
 
     logging.basicConfig(
-        level=logging.INFO,
+        level=logging.INFO,  # Change to logging.DEBUG for more details
         format='%(asctime)s - %(levelname)s - %(processName)s - %(message)s',
         handlers=[
             logging.FileHandler(log_file),
             logging.StreamHandler()
         ]
     )
+    return log_dir  # Return log_dir for use in subjob logs
 
 def write_pid(pid_file):
     os.makedirs(os.path.dirname(pid_file), exist_ok=True)  # Create dir if needed (e.g., for client pids)
@@ -83,6 +83,7 @@ def main():
     client_parser.add_argument('mode', choices=['live', 'replay'], help="Mode (live or replay)")
     client_parser.add_argument('client_script', help="Client script file (e.g., clients/client1.py)")
     client_parser.add_argument('config_file', help="Client config YAML file")
+    client_parser.add_argument('--parallel', action='store_true', help="Run replay in parallel mode (default: sequential)")
 
     # stop_server subcommand
     stop_server_parser = subparsers.add_parser('stop_server')
@@ -118,11 +119,18 @@ def main():
             sys.exit("Config must include 'client_name' (e.g., myclient1).")
         config['mode'] = args.mode
 
+        # Prepare parameters for logging
+        run_timestamp = None
+        mode_str = None
+        if args.mode == 'replay':
+            run_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            mode_str = "parallel" if args.parallel else "sequential"
+
         # Determine client's folder path for logs and outputs
         client_script_abs = os.path.abspath(args.client_script)
         client_dir = os.path.dirname(client_script_abs)
         config_name = os.path.splitext(os.path.basename(args.config_file))[0]  # e.g., 'client_amer'
-        setup_logging(config, args.mode, is_server=False, client_dir=client_dir, config_name=config_name)  # Client-specific logging
+        log_dir = setup_logging(config, args.mode, is_server=False, client_dir=client_dir, config_name=config_name, run_timestamp=run_timestamp, mode_str=mode_str)  # Client-specific logging
 
         # Dynamically import client script and get the client class
         spec = importlib.util.spec_from_file_location("client_module", client_script_abs)
@@ -146,38 +154,9 @@ def main():
 
         elif args.mode == 'replay':
             logging.info(f"Starting client {config['client_name']} in replay mode for region {config['region']} (processing directly)... PID written to {pid_file}")
-            from core.arch_data_loader import ArchDataLoader
-            from core.arch_calendar import Calendar  # Import for calendar scheduling
-            
-            loader = ArchDataLoader(config)
-            
-            # Use calendar if enabled in config
-            if 'calendar' in config.keys():
-                calendar = Calendar(config)
-                valid_dates = calendar.get_valid_dates(config['historical_range']['start'], config['historical_range']['end'])
-                periods = [(date, date + pd.Timedelta(days=1)) for date in valid_dates]  # Example: daily periods on valid dates
-            else:
-                periods = loader.get_periods()  # Fallback to original sequential periods
+            # Call the helper function for replay logic
+            replay_helper.run_replay(config, args.parallel, client_class, client_script_abs, client_dir, config_name, log_dir, run_timestamp)
 
-            def process_period(period_tuple):
-                period_start, period_end = period_tuple
-                data = loader.load_data(period_start, period_end)
-                client.process_period(period_start, data)
-
-            # Set replay output dir relative to client's folder path
-            config['output_dir'] = os.path.join(client_dir, config.get('output_dir', 'outputs'))  # Relative to client
-
-            if config.get('replay_parallel', False):
-                from multiprocessing import Pool
-                import multiprocessing_logging
-                multiprocessing_logging.install_mp_handler()
-                with Pool(processes=4) as pool:
-                    pool.map(process_period, periods)
-            else:
-                for period in periods:
-                    process_period(period)
-
-            logging.info(f"Replay completed for client {config['client_name']}")
             os.remove(pid_file)  # Clean up after completion (replay finishes)
 
     elif args.command == 'stop_server':
