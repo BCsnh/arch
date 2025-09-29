@@ -1,10 +1,10 @@
-# core/arch_data_loader.py
 import pandas as pd
 import requests
 import logging
 from dateutil.relativedelta import relativedelta
 import warnings
 from .period_helper import get_periods_comprehensive
+from .universe_helper import get_universe
 
 class ArchDataLoader:
     def __init__(self, config):
@@ -12,6 +12,7 @@ class ArchDataLoader:
         self.datasources = config.get('datasources', [])
         if 'market_data' not in self.datasources:
             raise ValueError("'datasources' must include 'market_data' as mandatory.")
+        self.decide_universe()
 
     def load_data(self, period_start, period_end):
         """Load dict of DataFrames for the period and region."""
@@ -29,6 +30,7 @@ class ArchDataLoader:
     def _fetch_live_data(self, period_start, period_end):
         data = {}
         region = self.config['region']
+        data['current_universe'] = self._slice_universe(period_start, period_end)
         for ds in self.datasources:
             # Placeholder: Fetch from API (customize for real source)
             # Simulate data with schema: refts, date, time, instrument_id, value1, value2, value3
@@ -51,11 +53,12 @@ class ArchDataLoader:
     def _load_historical_data(self, period_start, period_end):
         data = {}
         region = self.config['region']
+        data['current_universe'] = self._slice_universe(period_start, period_end)
         for ds in self.datasources:
             try:
                 file_path = f"{self.config['historical_dir']}/{region}/{ds}.csv"
                 df = pd.read_csv(file_path, parse_dates=['refts', 'date', 'time'])
-                mask = (df['refts'] >= period_start) & (df['refts'] < period_end)  # Use 'refts' for slicing
+                mask = (df['refts'] >= period_start) & (df['refts'] <= period_end)  # Use 'refts' to slice data
                 data[ds] = df.loc[mask].reset_index(drop=True)
                 logging.info(f"Loaded historical {ds} from {file_path} for region {region}")
             except Exception as e:
@@ -80,5 +83,15 @@ class ArchDataLoader:
         config['open_time'] = self.config['historical_range'].get('open_time', None)
         config['close_time'] = self.config['historical_range'].get('close_time', None)
         return get_periods_comprehensive(config)
-        
 
+    def decide_universe(self):
+        start_date = self.config['historical_range']['start']
+        end_date = self.config['historical_range']['end']
+        universe_data = get_universe(self.config['universe'], start_date, end_date)
+        # Assuming universe_data is a pd.DataFrame with 'date' and 'instrument_id' columns
+        self.universe_df = universe_data.copy()
+        self.universe_df['in_universe'] = 1
+
+    def _slice_universe(self, period_start, period_end):
+        mask = (self.universe_df['date'] >= period_start.normalize()) & (self.universe_df['date'] <= period_end.normalize()) # Use 'date' and period normalize() for slicing universe
+        return self.universe_df.loc[mask].reset_index(drop=True)

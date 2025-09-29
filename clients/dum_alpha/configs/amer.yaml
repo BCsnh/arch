@@ -2,14 +2,14 @@ client_name: dum_alpha1
 region: amer  # Required: must match server's region for live mode
 output_dir: ./outputs
 log_dir: ./logs
+universe: amer
 # For replay, it will use historical_dir from this config
 historical_dir: ./historical
 historical_range:
   start: 2023-01-01
-  end: 2023-01-10
+  end: 2023-01-05
   open_time: '09:30'
   close_time: '10:05'
-frequency: 15min  # minute / day / month / 15min / 60min
-replay_parallel: false
+frequency: day  # minute / day / month / 15min / 60min
 calendar: XNYS # 24/7, 24/5, XNYS, SSE etc
 datasources: [market_data]

@@ -35,6 +35,7 @@ class ArchClient:
         self.context = {
             'current_date': None,
             'current_time': None,
+            'current_universe': None,
             'current_market_data': None,
             # Additional custom info can be added here or in subclasses (e.g., from config)
             'custom_info': self.config.get('custom_client_info', {})  # Example: Pull from config
@@ -77,7 +78,8 @@ class ArchClient:
         # Update context for this event/period (use pd.Timestamp)
         self.context['current_date'] = pd.to_datetime(period_start).date()
         self.context['current_time'] = pd.to_datetime(period_start).time()
-        self.context['current_market_data'] = data  # Full data dict for the period
+        self.context['current_universe'] = data['current_universe']
+        self.context['current_market_data'] = data['market_data']
         logging.debug(f"Updated context for period {period_start}: {self.context}")
         
         outputs_df = self.generate(data)
