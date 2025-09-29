@@ -6,6 +6,7 @@
 
 # Start Client
 ./arch start_client live clients/dum_alpha/client.py clients/dum_alpha/configs/amer.yaml
+./arch start_client replay clients/dum_alpha/client.py clients/dum_alpha/configs/amer.yaml
 
 # Stop Client
 ./arch stop_client clients/dum_alpha/client.py clients/dum_alpha/configs/amer.yaml

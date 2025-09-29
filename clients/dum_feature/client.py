@@ -1,15 +1,15 @@
 # clients/client2.py
-from core.arch_client import ArchSignalClient
+from core.arch_client import ArchClient
 import pandas as pd
 import logging
 
-class Client2(ArchSignalClient):  # Must inherit from ArchSignalClient
+class Client2(ArchClient):  # Must inherit from ArchClient
     def initialize(self):
         # Example: Add custom info to context during initialization
         self.context['custom_threshold'] = 50  # Example custom addition
         logging.info(f"Initialized Client2 with custom context: {self.context}")
 
-    def generate_signals(self, data):
+    def generate(self, data):
         # Example: Use context in signal generation (e.g., conditional based on current_time)
         current_time = self.context['current_time']
         logging.debug(f"Generating signals at time {current_time} using market data: {self.context['current_market_data']}")

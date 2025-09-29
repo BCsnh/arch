@@ -6,7 +6,7 @@ import sys
 import logging
 import importlib
 from core.arch_manager import ArchManager
-from core.arch_client import ArchSignalClient
+from core.arch_client import ArchClient
 import time
 import os
 import signal
@@ -128,9 +128,9 @@ def main():
         spec = importlib.util.spec_from_file_location("client_module", client_script_abs)
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
-        client_class = next((cls for cls in vars(module).values() if isinstance(cls, type) and issubclass(cls, ArchSignalClient) and cls != ArchSignalClient), None)
+        client_class = next((cls for cls in vars(module).values() if isinstance(cls, type) and issubclass(cls, ArchClient) and cls != ArchClient), None)
         if not client_class:
-            sys.exit(f"No ArchSignalClient subclass found in {args.client_script}")
+            sys.exit(f"No ArchClient subclass found in {args.client_script}")
 
         client = client_class(config, config['client_name'])  # Use client_name from config
         # Write PID under client's folder (e.g., <client_dir>/pids/<client_name>.pid)
