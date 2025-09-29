@@ -1,4 +1,4 @@
-datetime,date,time,instrument_id,value1,value2,value3
+refts,date,time,instrument_id,value1,value2,value3
 2023-01-01 00:00:00,2023-01-01,00:00:00,instrid1,1,2,3
 2023-01-01 00:00:00,2023-01-01,00:00:00,instrid2,3,3,2
 2023-01-02 00:00:00,2023-01-02,00:00:00,instrid1,10,22,33

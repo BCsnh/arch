@@ -10,5 +10,5 @@ historical_range:
   end: 2023-12-31
 replay_parallel: false
 data_source: yahoo
-dataframe_types: [market_data]  # List of DataFrame types to load
+datasources: [market_data]  # List of DataFrame types to load
 archive_dir: ./archive  # For live archiving
