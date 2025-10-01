@@ -1,6 +1,7 @@
 region: amer  # Required: e.g., amer, apac
 mode: live
 frequency: day
+universe: amer
 redis_host: localhost
 redis_port: 6379
 redis_db: 0
@@ -10,5 +11,10 @@ historical_range:
   end: 2023-12-31
 replay_parallel: false
 data_source: yahoo
-datasources: [market_data]  # List of DataFrame types to load
+datasources:
+  market_data:
+    name: px
+    freq: daily
+    univ: amer
+    subd: null
 archive_dir: ./archive  # For live archiving

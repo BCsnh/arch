@@ -31,7 +31,7 @@ def make_json_serializable(obj):
 # Simulate sample data (dict of DataFrames with your schema)
 sample_data = {
     DATAFRAME_TYPE: pd.DataFrame({
-        'datetime': [pd.Timestamp('2023-10-01 00:00:00'), pd.Timestamp('2023-10-01 00:00:00')],
+        'refts': [pd.Timestamp('2023-10-01 00:00:00'), pd.Timestamp('2023-10-01 00:00:00')],
         'date': [pd.Timestamp('2023-10-01').date(), pd.Timestamp('2023-10-01').date()],
         'time': [pd.Timestamp('2023-10-01 00:00:00').time(), pd.Timestamp('2023-10-01 00:00:00').time()],
         'instrument_id': ['instrid1', 'instrid2'],

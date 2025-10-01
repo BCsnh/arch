@@ -22,12 +22,13 @@ class ArchDataLoader:
             period_start = pd.to_datetime(period_start)
             period_end = pd.to_datetime(period_end)
 
-            if self.config['mode'] == 'live':
+            if self.config['mode'] == 'live': # server use in live
                 return self._fetch_live_data(period_start, period_end)
-            else:
+            else: # client use direclty in replay
                 return self._load_historical_data(period_start, period_end)
 
     def _fetch_live_data(self, period_start, period_end):
+        # live - server use
         data = {}
         region = self.config['region']
         data['current_universe'] = self._slice_universe(period_start, period_end)
@@ -51,6 +52,7 @@ class ArchDataLoader:
         return data
 
     def _load_historical_data(self, period_start, period_end):
+        # replay - client use
         data = {}
         region = self.config['region']
         data['current_universe'] = self._slice_universe(period_start, period_end)
