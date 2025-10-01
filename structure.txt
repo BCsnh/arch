@@ -1,24 +1,38 @@
 arch_framework/
-├── arch  # Executable CLI script (handles server and clients)
-├── core/  # New: Core framework components
-│   ├── arch_manager.py  # Framework manager (server logic)
-│   ├── arch_data_loader.py  # Data loading logic
-│   ├── arch_broadcaster.py  # Broadcasting and archiving logic
-│   └── arch_client.py  # Base class for clients
+├── arch  # Executable CLI script
+├── arch.py  # Executable CLI py script with logics to handles server and clients
 ├── clients/  # Directory for client scripts (run via arch CLI)
-│   ├── client1.py  # Example client
-│   └── client2.py  # Another example client
-├── configs/  # Directory for configuration YAML files
-│   ├── server_amer.yaml
-│   ├── server_apac.yaml
-│   ├── client_amer.yaml
-│   └── client_apac.yaml
-├── historical/  # Directory for historical data
-│   ├── amer/
-│   │   └── market_data.csv
-│   └── apac/
-│       └── market_data.csv
+│   ├── dum_alpha/  # Example alpha client
+│   │   ├── client.py
+│   │   └── configs/
+│   │       ├── amer.yaml
+│   │       └── apac.yaml
+│   └── dum_feature/  # Example feature client
+│       └── client.py
+├── core/  # Core framework components
+│   ├── arch_broadcaster.py  # Broadcasting and archiving logic
+│   ├── arch_calendar.py  #  Calender class
+│   ├── arch_client.py  # Base class for clients
+│   ├── arch_data_loader.py  # Data loading logic
+│   ├── arch_manager.py  # Framework manager (server logic)
+│   ├── period_helper.py  
+│   ├── replay_helper.py
+│   └── universe_helper.py
+├── historical/  # Directory for historical sample data
+│   ├── amer/
+│   │   └── market_data.csv
+│   └── apac/
+│       └── market_data.csv
+├── scripts  # Directory for running sample scripts
+│   └── sample_scripts
+├── server_configs  # Directory for example server configs
+│   ├── amer.yaml
+│   └── apac.yaml
+├── structure.txt  # Project structure
+├── tests/  # Directory for tests
+│   └── test_redis_push.py
 ├── logs/  # Runtime logs
 ├── outputs/  # Runtime signal outputs
 ├── archive/  # Runtime live archives
 └── pids/  # PID files for stopping processes
+
